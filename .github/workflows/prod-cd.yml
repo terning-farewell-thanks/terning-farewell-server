@@ -1,4 +1,4 @@
-name: CD - Deploy to EC2 with Docker Compose
+name: CD - Deploy to EC2
 
 on:
   workflow_run:
@@ -10,6 +10,9 @@ jobs:
   deploy:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: self-hosted
+
+    permissions:
+      actions: read
 
     steps:
       - name: 아티팩트 다운로드 (이미지 태그 가져오기)
@@ -31,10 +34,6 @@ jobs:
         run: docker pull ${{ secrets.DOCKER_USERNAME }}/terning-farewell-server:${{ env.IMAGE_TAG }}
 
       - name: 블루/그린 배포 스크립트 실행
-        env:
-          DB_PROD_URL: ${{ vars.DB_PROD_URL }}
-          DB_PROD_USERNAME: ${{ secrets.DB_PROD_USERNAME }}
-          DB_PROD_PASSWORD: ${{ secrets.DB_PROD_PASSWORD }}
         run: |
           BLUE=$(docker ps --filter "name=blue" --format "{{.Names}}")
           if [ -z "$BLUE" ]; then
@@ -48,9 +47,13 @@ jobs:
           fi
 
           echo "Deploying new container: ${NEW_CONTAINER_NAME} on port ${NEW_PORT}"
-          
-          cd /app
-          docker compose -p ${NEW_CONTAINER_NAME} --env-file ./.env up -d --no-deps
+
+          docker run -d --name ${NEW_CONTAINER_NAME} -p ${NEW_PORT}:8080 \
+          -e DB_PROD_URL="${DB_PROD_URL}" \
+          -e DB_PROD_USERNAME="${DB_PROD_USERNAME}" \
+          -e DB_PROD_PASSWORD="${DB_PROD_PASSWORD}" \
+          -e SPRING_PROFILES_ACTIVE=prod \
+          ${{ secrets.DOCKER_USERNAME }}/terning-farewell-server:${{ env.IMAGE_TAG }}
 
           echo "Waiting for new container to start..."
           sleep 15
@@ -66,7 +69,7 @@ jobs:
             sleep 5
             if [ $i -eq 10 ]; then
               echo "Deployment failed after multiple health checks."
-              docker compose -p ${NEW_CONTAINER_NAME} down
+              docker rm -f ${NEW_CONTAINER_NAME}
               exit 1
             fi
           done
@@ -77,9 +80,10 @@ jobs:
 
           EXISTING_OLD=$(docker ps -a --filter "name=${OLD_CONTAINER_NAME}" --format "{{.Names}}")
           if [ ! -z "$EXISTING_OLD" ]; then
-            docker compose -p ${OLD_CONTAINER_NAME} down
+            docker stop ${OLD_CONTAINER_NAME}
+            docker rm ${OLD_CONTAINER_NAME}
             echo "Stopped and removed old container: ${OLD_CONTAINER_NAME}"
           fi
-          
+
       - name: 오래된 Docker 이미지 정리
         run: docker image prune -f
