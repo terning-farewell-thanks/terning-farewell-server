@@ -1,82 +1,74 @@
-name: CD - Deploy to EC2
+name: DOCKER-CD
 
 on:
-  workflow_run:
-    workflows: [ "CI - Build and Push Docker Image" ]
-    types: [ completed ]
-    branches: [ main ]
+  push:
+    branches: [ "main" ]
 
 jobs:
-  deploy:
-    if: github.event.workflow_run.conclusion == 'success'
-    runs-on: self-hosted
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Docker Hub 로그인
-        uses: docker/login-action@v2
+      - name: 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          distribution: 'temurin'
+          java-version: '21'
 
-      - name: 최신 이미지 pull (latest 태그 사용)
-        run: docker pull ${{ secrets.DOCKER_USERNAME }}/terning-farewell-server:latest
+      - name: Gradle Caching (빌드 시간 향상)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-      - name: 블루/그린 배포 스크립트 실행
-        env:
-          DB_PROD_URL: ${{ vars.DB_PROD_URL }}
-          DB_PROD_USERNAME: ${{ secrets.DB_PROD_USERNAME }}
-          DB_PROD_PASSWORD: ${{ secrets.DB_PROD_PASSWORD }}
+      - name: 설정 파일 생성 (.yml)
         run: |
-          IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/terning-farewell-server:latest"
+          mkdir -p ./src/main/resources
+          echo "${{ secrets.YML }}" > ./src/main/resources/application.yml
+          echo "${{ secrets.YML_PROD }}" > ./src/main/resources/application-prod.yml
 
-          BLUE=$(docker ps --filter "name=blue" --format "{{.Names}}")
-          if [ -z "$BLUE" ]; then
-            OLD_CONTAINER_NAME=green
-            NEW_CONTAINER_NAME=blue
-            NEW_PORT=8080
-          else
-            OLD_CONTAINER_NAME=blue
-            NEW_CONTAINER_NAME=green
-            NEW_PORT=8081
-          fi
+      - name: 빌드 (Gradle)
+        run: |
+          chmod +x gradlew
+          ./gradlew build -x test
 
-          echo "Deploying new container: ${NEW_CONTAINER_NAME} on port ${NEW_PORT}"
+      - name: Docker Hub 로그인
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_LOGIN_USERNAME }}
+          password: ${{ secrets.DOCKER_LOGIN_ACCESSTOKEN }}
 
-          # 스크립트 내에서 GitHub으로부터 받은 환경 변수를 사용
-          docker run -d --name ${NEW_CONTAINER_NAME} -p ${NEW_PORT}:8080 \
-          -e DB_PROD_URL="${DB_PROD_URL}" \
-          -e DB_PROD_USERNAME="${DB_PROD_USERNAME}" \
-          -e DB_PROD_PASSWORD="${DB_PROD_PASSWORD}" \
-          -e SPRING_PROFILES_ACTIVE=prod \
-          $IMAGE_NAME
+      - name: Docker 이미지 빌드 및 푸시
+        run: |
 
-          echo "Waiting for new container to start..."
-          sleep 15
+          GIT_TAG=$(git rev-parse --short HEAD)
+          
+          docker build --platform linux/amd64 -t jsoonworld/terning-farewell-server:$GIT_TAG .
+          docker push jsoonworld/terning-farewell-server:$GIT_TAG
+          
+          docker tag jsoonworld/terning-farewell-server:$GIT_TAG jsoonworld/terning-farewell-server:latest
+          docker push jsoonworld/terning-farewell-server:latest
 
-          HEALTH_CHECK_URL="http://localhost:${NEW_PORT}/actuator/health"
-          for i in {1..10}; do
-            RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" $HEALTH_CHECK_URL)
-            if [ "$RESPONSE_CODE" = "200" ]; then
-              echo "Health check successful!"
-              break
-            fi
-            echo "Health check failed (Attempt $i/10). Retrying in 5 seconds..."
-            sleep 5
-            if [ $i -eq 10 ]; then
-              echo "Deployment failed after multiple health checks."
-              docker rm -f ${NEW_CONTAINER_NAME}
-              exit 1
-            fi
-          done
+  deploy:
+    name: Deploy to EC2
+    needs: build-and-push
+    runs-on: ubuntu-latest
 
-          echo "set \$service_url http://127.0.0.1:${NEW_PORT};" | sudo tee /etc/nginx/conf.d/service-url.inc
-          sudo systemctl reload nginx
-
-          EXISTING_OLD=$(docker ps -a --filter "name=${OLD_CONTAINER_NAME}" --format "{{.Names}}")
-          if [ ! -z "$EXISTING_OLD" ]; then
-            docker stop ${OLD_CONTAINER_NAME}
-            docker rm ${OLD_CONTAINER_NAME}
-          fi
-
-      - name: Docker 이미지 정리
-        run: docker image prune -f
+    steps:
+      - name: docker 컨테이너 실행
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_KEY }}
+          script: |
+            cd ~
+            ./deploy.sh
