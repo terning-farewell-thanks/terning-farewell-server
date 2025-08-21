@@ -62,7 +62,7 @@ nbdist/
 .DS_Store
 
 # =================================================
-# Sensitive Information
+# Sensitive Information & Configuration
 # =================================================
 
 # Environment variables
@@ -72,5 +72,25 @@ nbdist/
 # Custom private configurations
 application-private.yml
 
+# Spring configuration directory for CI/CD
+/src/main/resources/
+
+# =================================================
 # Miscellaneous
+# =================================================
+
 HELP.md
+
+# Compiled class files from original list
+*.class
+
+# Package files from original list
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# virtual machine crash logs
+hs_err_pid*
