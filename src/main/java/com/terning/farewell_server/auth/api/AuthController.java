@@ -1,7 +1,9 @@
 package com.terning.farewell_server.auth.api;
 
-import com.terning.farewell_server.auth.dto.EmailRequest;
 import com.terning.farewell_server.auth.application.AuthService;
+import com.terning.farewell_server.auth.dto.request.EmailRequest;
+import com.terning.farewell_server.auth.dto.request.VerifyCodeRequest;
+import com.terning.farewell_server.auth.dto.response.AuthenticationResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,5 +21,11 @@ public class AuthController {
     @PostMapping("/send-verification-code")
     public void sendVerificationCode(@Valid @RequestBody EmailRequest request) {
         authService.sendVerificationCode(request.email());
+    }
+
+    @PostMapping("/verify-code")
+    public AuthenticationResponse verifyCode(@Valid @RequestBody VerifyCodeRequest request) {
+        String token = authService.verifyEmailCode(request.email(), request.code());
+        return new AuthenticationResponse(token);
     }
 }
