@@ -1,5 +1,7 @@
 package com.terning.farewell_server.mail.application;
 
+import com.terning.farewell_server.mail.exception.MailErrorCode;
+import com.terning.farewell_server.mail.exception.MailException;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +43,7 @@ public class EmailService {
             log.info("이메일 발송 성공! 수신자: {}, 제목: {}", toEmail, subject);
         } catch (MessagingException e) {
             log.error("이메일 발송 실패. 수신자: {}", toEmail, e);
-            throw new RuntimeException("이메일 발송에 실패했습니다.", e);
+            throw new MailException(MailErrorCode.EMAIL_SEND_FAILURE);
         }
     }
 }
