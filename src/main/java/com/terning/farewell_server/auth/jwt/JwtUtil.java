@@ -53,8 +53,11 @@ public class JwtUtil {
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
-        } catch (SecurityException | MalformedJwtException e) {
-            log.warn("잘못된 JWT 서명입니다.", e);
+        } catch (SecurityException e) {
+            log.warn("유효하지 않은 JWT 서명입니다.", e);
+            throw new AuthException(AuthErrorCode.INVALID_JWT_SIGNATURE);
+        } catch (MalformedJwtException e) {
+            log.warn("잘못된 형식의 JWT 토큰입니다.", e);
             throw new AuthException(AuthErrorCode.MALFORMED_JWT_TOKEN);
         } catch (ExpiredJwtException e) {
             log.warn("만료된 JWT 토큰입니다.", e);

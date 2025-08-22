@@ -16,7 +16,6 @@ class JwtUtilTest {
     private JwtUtil jwtUtil;
 
     private static final String TEST_SECRET_KEY = "dGhpc2lzYW5leGFtcGxlb2Zhc2VjdXJlYW5kcmFuZG9tbHlnZW5lcmF0ZWRzZWNyZXRrZXlmb3Jqd3Q=";
-    private static final long ONE_SECOND_EXPIRATION = 1000L;
     private static final long ONE_HOUR_EXPIRATION = 3600000L;
     private static final String EMAIL = "test@example.com";
 
@@ -43,23 +42,20 @@ class JwtUtilTest {
 
     @Test
     @DisplayName("만료된 토큰 파싱 시 AuthException(EXPIRED_JWT_TOKEN) 발생")
-    void parseToken_Fail_Expired() throws InterruptedException {
+    void parseToken_Fail_Expired() {
         // given
-        ReflectionTestUtils.setField(jwtUtil, "expirationTime", ONE_SECOND_EXPIRATION);
+        ReflectionTestUtils.setField(jwtUtil, "expirationTime", 0L);
         jwtUtil.init();
         String expiredToken = jwtUtil.generateTemporaryToken(EMAIL);
 
-        // when
-        Thread.sleep(ONE_SECOND_EXPIRATION + 100);
-
-        // then
+        // when & then
         assertThatThrownBy(() -> jwtUtil.parseToken(expiredToken))
                 .isInstanceOf(AuthException.class)
                 .hasMessageContaining(AuthErrorCode.EXPIRED_JWT_TOKEN.getMessage());
     }
 
     @Test
-    @DisplayName("잘못된 서명을 가진 토큰 파싱 시 AuthException(MALFORMED_JWT_TOKEN) 발생")
+    @DisplayName("잘못된 서명을 가진 토큰 파싱 시 AuthException(INVALID_JWT_SIGNATURE) 발생")
     void parseToken_Fail_InvalidSignature() {
         // given
         JwtUtil otherJwtUtil = new JwtUtil();
@@ -72,11 +68,11 @@ class JwtUtilTest {
         // when & then
         assertThatThrownBy(() -> jwtUtil.parseToken(tokenWithWrongSignature))
                 .isInstanceOf(AuthException.class)
-                .hasMessageContaining(AuthErrorCode.MALFORMED_JWT_TOKEN.getMessage());
+                .hasMessageContaining(AuthErrorCode.INVALID_JWT_SIGNATURE.getMessage());
     }
 
     @Test
-    @DisplayName("유효하지 않은 형식의 토큰 파싱 시 AuthException 발생")
+    @DisplayName("유효하지 않은 형식의 토큰 파싱 시 AuthException(MALFORMED_JWT_TOKEN) 발생")
     void parseToken_Fail_InvalidFormat() {
         // given
         String invalidToken = "this.is.not.a.valid.jwt.token";
