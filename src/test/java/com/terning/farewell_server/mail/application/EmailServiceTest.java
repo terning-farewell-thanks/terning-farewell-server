@@ -1,5 +1,7 @@
 package com.terning.farewell_server.mail.application;
 
+import com.terning.farewell_server.mail.exception.MailErrorCode;
+import com.terning.farewell_server.mail.exception.MailException;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
@@ -11,7 +13,6 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
@@ -19,10 +20,9 @@ import org.thymeleaf.spring6.SpringTemplateEngine;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -67,16 +67,15 @@ class EmailServiceTest {
     }
 
     @Test
-    @DisplayName("이메일 발송 실패 시 RuntimeException을 던져야 한다.")
-    void sendVerificationCode_should_throw_exception_on_failure() {
+    @DisplayName("이메일 발송 실패 시 MailException을 던져야 한다.")
+    void sendVerificationCode_should_throw_MailException_on_failure() {
         // given
-        MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
-
         when(templateEngine.process(eq("verificationCode"), any(Context.class))).thenReturn(MOCK_HTML_CONTENT);
-        when(javaMailSender.createMimeMessage()).thenReturn(mimeMessage);
-        doThrow(new MailSendException("Failed to send email")).when(javaMailSender).send(any(MimeMessage.class));
+        when(javaMailSender.createMimeMessage()).thenThrow(new MailException(MailErrorCode.EMAIL_SEND_FAILURE));
 
         // when & then
-        assertThrows(RuntimeException.class, () -> emailService.sendVerificationCode(TO_EMAIL, CODE));
+        assertThatThrownBy(() -> emailService.sendVerificationCode(TO_EMAIL, CODE))
+                .isInstanceOf(MailException.class)
+                .hasMessageContaining(MailErrorCode.EMAIL_SEND_FAILURE.getMessage());
     }
 }

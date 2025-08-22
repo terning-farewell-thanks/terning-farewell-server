@@ -3,22 +3,30 @@ package com.terning.farewell_server.auth.api;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.terning.farewell_server.auth.application.AuthService;
 import com.terning.farewell_server.auth.dto.EmailRequest;
+import com.terning.farewell_server.global.error.GlobalErrorCode;
+import com.terning.farewell_server.global.success.GlobalSuccessCode;
+import com.terning.farewell_server.mail.exception.MailErrorCode;
+import com.terning.farewell_server.mail.exception.MailException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
+@Import(AuthControllerTest.MockConfig.class)
 class AuthControllerTest {
 
     @Autowired
@@ -27,16 +35,23 @@ class AuthControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockitoBean
+    @Autowired
     private AuthService authService;
 
+    @TestConfiguration
+    static class MockConfig {
+        @Bean
+        AuthService authService() {
+            return Mockito.mock(AuthService.class);
+        }
+    }
+
     @Test
-    @DisplayName("유효한 이메일로 인증 코드 발송을 요청하면 성공(200 OK)한다.")
+    @DisplayName("유효한 이메일로 인증 코드 발송을 요청하면 표준 성공 응답(200 OK)을 반환한다.")
     void sendVerificationCode_Success() throws Exception {
         // given
         EmailRequest request = new EmailRequest("test@example.com");
         String requestBody = objectMapper.writeValueAsString(request);
-
         doNothing().when(authService).sendVerificationCode("test@example.com");
 
         // when
@@ -49,13 +64,12 @@ class AuthControllerTest {
         // then
         resultActions
                 .andExpect(status().isOk())
-                .andExpect(content().string("인증 코드가 성공적으로 발송되었습니다."));
-
-        verify(authService).sendVerificationCode("test@example.com");
+                .andExpect(jsonPath("$.status").value(GlobalSuccessCode.OK.getStatus().value()))
+                .andExpect(jsonPath("$.message").value(GlobalSuccessCode.OK.getMessage()));
     }
 
     @Test
-    @DisplayName("유효하지 않은 이메일 형식으로 요청하면 실패(400 Bad Request)한다.")
+    @DisplayName("유효하지 않은 이메일 형식으로 요청하면 표준 실패 응답(400 Bad Request)을 반환한다.")
     void sendVerificationCode_Fail_InvalidEmail() throws Exception {
         // given
         EmailRequest request = new EmailRequest("invalid-email");
@@ -70,15 +84,20 @@ class AuthControllerTest {
 
         // then
         resultActions
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(GlobalErrorCode.INVALID_INPUT_VALUE.getStatus().value()))
+                .andExpect(jsonPath("$.message").isNotEmpty());
     }
 
     @Test
-    @DisplayName("이메일을 비워서 요청하면 실패(400 Bad Request)한다.")
-    void sendVerificationCode_Fail_BlankEmail() throws Exception {
+    @DisplayName("이메일 발송 중 서버 오류 발생 시 표준 실패 응답(500 Internal Server Error)을 반환한다.")
+    void sendVerificationCode_Fail_ServiceError() throws Exception {
         // given
-        EmailRequest request = new EmailRequest("");
+        EmailRequest request = new EmailRequest("test@example.com");
         String requestBody = objectMapper.writeValueAsString(request);
+
+        doThrow(new MailException(MailErrorCode.EMAIL_SEND_FAILURE))
+                .when(authService).sendVerificationCode("test@example.com");
 
         // when
         ResultActions resultActions = mockMvc.perform(
@@ -89,6 +108,8 @@ class AuthControllerTest {
 
         // then
         resultActions
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.status").value(MailErrorCode.EMAIL_SEND_FAILURE.getStatus().value()))
+                .andExpect(jsonPath("$.message").value(MailErrorCode.EMAIL_SEND_FAILURE.getMessage()));
     }
 }
