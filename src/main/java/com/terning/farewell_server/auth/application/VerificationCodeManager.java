@@ -1,5 +1,7 @@
 package com.terning.farewell_server.auth.application;
 
+import com.terning.farewell_server.auth.exception.AuthErrorCode;
+import com.terning.farewell_server.auth.exception.AuthException;
 import com.terning.farewell_server.global.common.RedisService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -29,9 +31,14 @@ public class VerificationCodeManager {
         return String.valueOf(code);
     }
 
-    public boolean verifyCode(String email, String codeToVerify) {
+    public void verifyCode(String email, String codeToVerify) {
         String redisKey = VERIFICATION_CODE_PREFIX + email;
         String storedCode = redisService.getData(redisKey);
-        return codeToVerify.equals(storedCode);
+
+        if (storedCode == null || !codeToVerify.equals(storedCode)) {
+            throw new AuthException(AuthErrorCode.INVALID_VERIFICATION_CODE);
+        }
+
+        redisService.deleteData(redisKey);
     }
 }
