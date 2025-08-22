@@ -1,0 +1,89 @@
+package com.terning.farewell_server.auth.jwt;
+
+import com.terning.farewell_server.auth.exception.AuthErrorCode;
+import com.terning.farewell_server.auth.exception.AuthException;
+import io.jsonwebtoken.Claims;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class JwtUtilTest {
+
+    private JwtUtil jwtUtil;
+
+    private static final String TEST_SECRET_KEY = "dGhpc2lzYW5leGFtcGxlb2Zhc2VjdXJlYW5kcmFuZG9tbHlnZW5lcmF0ZWRzZWNyZXRrZXlmb3Jqd3Q=";
+    private static final long ONE_SECOND_EXPIRATION = 1000L;
+    private static final long ONE_HOUR_EXPIRATION = 3600000L;
+    private static final String EMAIL = "test@example.com";
+
+    @BeforeEach
+    void setUp() {
+        jwtUtil = new JwtUtil();
+        ReflectionTestUtils.setField(jwtUtil, "secretKeyString", TEST_SECRET_KEY);
+        ReflectionTestUtils.setField(jwtUtil, "expirationTime", ONE_HOUR_EXPIRATION);
+        jwtUtil.init();
+    }
+
+    @Test
+    @DisplayName("토큰 생성 및 파싱 성공 테스트")
+    void generateAndParseToken_Success() {
+        // given
+        String token = jwtUtil.generateTemporaryToken(EMAIL);
+
+        // when
+        Claims claims = jwtUtil.parseToken(token);
+
+        // then
+        assertThat(claims.getSubject()).isEqualTo(EMAIL);
+    }
+
+    @Test
+    @DisplayName("만료된 토큰 파싱 시 AuthException(EXPIRED_JWT_TOKEN) 발생")
+    void parseToken_Fail_Expired() throws InterruptedException {
+        // given
+        ReflectionTestUtils.setField(jwtUtil, "expirationTime", ONE_SECOND_EXPIRATION);
+        jwtUtil.init();
+        String expiredToken = jwtUtil.generateTemporaryToken(EMAIL);
+
+        // when
+        Thread.sleep(ONE_SECOND_EXPIRATION + 100);
+
+        // then
+        assertThatThrownBy(() -> jwtUtil.parseToken(expiredToken))
+                .isInstanceOf(AuthException.class)
+                .hasMessageContaining(AuthErrorCode.EXPIRED_JWT_TOKEN.getMessage());
+    }
+
+    @Test
+    @DisplayName("잘못된 서명을 가진 토큰 파싱 시 AuthException(MALFORMED_JWT_TOKEN) 발생")
+    void parseToken_Fail_InvalidSignature() {
+        // given
+        JwtUtil otherJwtUtil = new JwtUtil();
+        ReflectionTestUtils.setField(otherJwtUtil, "secretKeyString", "another-secret-key-string-for-testing-purpose-only-!@#$");
+        ReflectionTestUtils.setField(otherJwtUtil, "expirationTime", ONE_HOUR_EXPIRATION);
+        otherJwtUtil.init();
+
+        String tokenWithWrongSignature = otherJwtUtil.generateTemporaryToken(EMAIL);
+
+        // when & then
+        assertThatThrownBy(() -> jwtUtil.parseToken(tokenWithWrongSignature))
+                .isInstanceOf(AuthException.class)
+                .hasMessageContaining(AuthErrorCode.MALFORMED_JWT_TOKEN.getMessage());
+    }
+
+    @Test
+    @DisplayName("유효하지 않은 형식의 토큰 파싱 시 AuthException 발생")
+    void parseToken_Fail_InvalidFormat() {
+        // given
+        String invalidToken = "this.is.not.a.valid.jwt.token";
+
+        // when & then
+        assertThatThrownBy(() -> jwtUtil.parseToken(invalidToken))
+                .isInstanceOf(AuthException.class)
+                .hasMessageContaining(AuthErrorCode.MALFORMED_JWT_TOKEN.getMessage());
+    }
+}

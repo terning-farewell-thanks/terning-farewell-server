@@ -2,7 +2,10 @@ package com.terning.farewell_server.auth.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.terning.farewell_server.auth.application.AuthService;
-import com.terning.farewell_server.auth.dto.EmailRequest;
+import com.terning.farewell_server.auth.dto.request.EmailRequest;
+import com.terning.farewell_server.auth.dto.request.VerifyCodeRequest;
+import com.terning.farewell_server.auth.exception.AuthErrorCode;
+import com.terning.farewell_server.auth.exception.AuthException;
 import com.terning.farewell_server.global.error.GlobalErrorCode;
 import com.terning.farewell_server.global.success.GlobalSuccessCode;
 import com.terning.farewell_server.mail.exception.MailErrorCode;
@@ -21,6 +24,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -111,5 +115,54 @@ class AuthControllerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.status").value(MailErrorCode.EMAIL_SEND_FAILURE.getStatus().value()))
                 .andExpect(jsonPath("$.message").value(MailErrorCode.EMAIL_SEND_FAILURE.getMessage()));
+    }
+
+    @Test
+    @DisplayName("유효한 이메일과 코드로 검증 요청 시, 토큰과 함께 표준 성공 응답(200 OK)을 반환한다.")
+    void verifyCode_Success() throws Exception {
+        // given
+        VerifyCodeRequest request = new VerifyCodeRequest("test@example.com", "123456");
+        String requestBody = objectMapper.writeValueAsString(request);
+        String mockToken = "mock.jwt.token";
+
+        when(authService.verifyEmailCode("test@example.com", "123456")).thenReturn(mockToken);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+                post("/api/auth/verify-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody)
+        );
+
+        // then
+        resultActions
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(GlobalSuccessCode.OK.getStatus().value()))
+                .andExpect(jsonPath("$.message").value(GlobalSuccessCode.OK.getMessage()))
+                .andExpect(jsonPath("$.result.temporaryToken").value(mockToken));
+    }
+
+    @Test
+    @DisplayName("유효하지 않은 코드로 검증 요청 시, 표준 실패 응답(400 Bad Request)을 반환한다.")
+    void verifyCode_Fail_InvalidCode() throws Exception {
+        // given
+        VerifyCodeRequest request = new VerifyCodeRequest("test@example.com", "999999");
+        String requestBody = objectMapper.writeValueAsString(request);
+
+        when(authService.verifyEmailCode("test@example.com", "999999"))
+                .thenThrow(new AuthException(AuthErrorCode.INVALID_VERIFICATION_CODE));
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+                post("/api/auth/verify-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody)
+        );
+
+        // then
+        resultActions
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(AuthErrorCode.INVALID_VERIFICATION_CODE.getStatus().value()))
+                .andExpect(jsonPath("$.message").value(AuthErrorCode.INVALID_VERIFICATION_CODE.getMessage()));
     }
 }
