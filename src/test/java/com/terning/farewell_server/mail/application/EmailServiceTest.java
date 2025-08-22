@@ -1,6 +1,7 @@
 package com.terning.farewell_server.mail.application;
 
 import jakarta.mail.MessagingException;
+import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,8 @@ import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
+
+import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -47,7 +50,7 @@ class EmailServiceTest {
     @DisplayName("유효한 이메일과 코드로 이메일 전송을 요청하면 성공해야 한다.")
     void sendVerificationCode_should_send_email_successfully() throws MessagingException {
         // given
-        MimeMessage mimeMessage = new MimeMessage((jakarta.mail.Session) null);
+        MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
 
         when(templateEngine.process(eq("verificationCode"), any(Context.class))).thenReturn(MOCK_HTML_CONTENT);
         when(javaMailSender.createMimeMessage()).thenReturn(mimeMessage);
@@ -67,7 +70,7 @@ class EmailServiceTest {
     @DisplayName("이메일 발송 실패 시 RuntimeException을 던져야 한다.")
     void sendVerificationCode_should_throw_exception_on_failure() {
         // given
-        MimeMessage mimeMessage = new MimeMessage((jakarta.mail.Session) null);
+        MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
 
         when(templateEngine.process(eq("verificationCode"), any(Context.class))).thenReturn(MOCK_HTML_CONTENT);
         when(javaMailSender.createMimeMessage()).thenReturn(mimeMessage);

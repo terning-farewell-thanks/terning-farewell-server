@@ -4,8 +4,8 @@ import com.terning.farewell_server.global.common.RedisService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.security.SecureRandom;
 import java.time.Duration;
-import java.util.Random;
 
 @Component
 @RequiredArgsConstructor
@@ -24,8 +24,8 @@ public class VerificationCodeManager {
     }
 
     private String createVerificationCode() {
-        Random random = new Random();
-        int code = 100000 + random.nextInt(900000);
+        SecureRandom secureRandom = new SecureRandom();
+        int code = 100000 + secureRandom.nextInt(900000);
         return String.valueOf(code);
     }
 

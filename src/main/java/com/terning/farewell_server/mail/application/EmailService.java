@@ -41,7 +41,7 @@ public class EmailService {
             log.info("이메일 발송 성공! 수신자: {}, 제목: {}", toEmail, subject);
         } catch (MessagingException e) {
             log.error("이메일 발송 실패. 수신자: {}", toEmail, e);
-            throw new RuntimeException("이메일 발송에 실패했습니다.");
+            throw new RuntimeException("이메일 발송에 실패했습니다.", e);
         }
     }
 }
