@@ -1,4 +1,4 @@
-package com.terning.farewell_server.auth.dto;
+package com.terning.farewell_server.auth.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
