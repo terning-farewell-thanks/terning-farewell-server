@@ -10,6 +10,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -31,6 +32,7 @@ class EventConsumerTest {
     private EventConsumer eventConsumer;
 
     private static final String EMAIL = "test@example.com";
+    private static final String OTHER_PARAM = "someValue";
 
     @Test
     @DisplayName("Kafka 메시지 수신 시, 신청 내역 저장과 이메일 발송이 순서대로 호출된다.")
@@ -40,7 +42,7 @@ class EventConsumerTest {
         doNothing().when(emailService).sendConfirmationEmail(EMAIL);
 
         // when
-        eventConsumer.handleApplication(EMAIL);
+        eventConsumer.handleApplication(EMAIL, OTHER_PARAM);
 
         // then
         InOrder inOrder = inOrder(applicationService, emailService);
@@ -55,8 +57,9 @@ class EventConsumerTest {
         doThrow(new RuntimeException("DB 저장 실패"))
                 .when(applicationService).saveApplication(EMAIL);
 
-        // when
-        eventConsumer.handleApplication(EMAIL);
+        assertThrows(RuntimeException.class, () -> {
+            eventConsumer.handleApplication(EMAIL, OTHER_PARAM);
+        });
 
         // then
         verify(applicationService, times(1)).saveApplication(EMAIL);
