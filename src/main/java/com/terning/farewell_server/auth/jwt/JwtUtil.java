@@ -13,6 +13,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
@@ -20,6 +21,9 @@ import java.util.Date;
 @Slf4j
 @Component
 public class JwtUtil {
+
+    public static final String AUTHORIZATION_HEADER = "Authorization";
+    public static final String BEARER_PREFIX = "Bearer ";
 
     @Value("${jwt.secret.key}")
     private String secretKeyString;
@@ -44,6 +48,17 @@ public class JwtUtil {
                 .setExpiration(expiryDate)
                 .signWith(secretKey)
                 .compact();
+    }
+
+    public String resolveToken(String bearerToken) {
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
+            return bearerToken.substring(7);
+        }
+        throw new AuthException(AuthErrorCode.INVALID_JWT_TOKEN);
+    }
+
+    public String getEmailFromToken(String token) {
+        return parseToken(token).getSubject();
     }
 
     public Claims parseToken(String token) {

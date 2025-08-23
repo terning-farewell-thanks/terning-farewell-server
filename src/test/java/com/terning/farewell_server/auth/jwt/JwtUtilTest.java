@@ -6,6 +6,9 @@ import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -81,5 +84,43 @@ class JwtUtilTest {
         assertThatThrownBy(() -> jwtUtil.parseToken(invalidToken))
                 .isInstanceOf(AuthException.class)
                 .hasMessageContaining(AuthErrorCode.MALFORMED_JWT_TOKEN.getMessage());
+    }
+
+    @Test
+    @DisplayName("'Bearer ' 접두사가 있는 헤더에서 토큰을 성공적으로 추출한다.")
+    void resolveToken_Success() {
+        // given
+        String rawToken = "raw.jwt.token";
+        String bearerToken = "Bearer " + rawToken;
+
+        // when
+        String resolvedToken = jwtUtil.resolveToken(bearerToken);
+
+        // then
+        assertThat(resolvedToken).isEqualTo(rawToken);
+    }
+
+    @ParameterizedTest
+    @DisplayName("'Bearer ' 접두사가 없거나, null 또는 빈 문자열일 경우 AuthException(INVALID_JWT_TOKEN) 발생")
+    @NullAndEmptySource
+    @ValueSource(strings = {"InvalidToken", " Bearer token"})
+    void resolveToken_Fail_InvalidFormat(String invalidToken) {
+        // when & then
+        assertThatThrownBy(() -> jwtUtil.resolveToken(invalidToken))
+                .isInstanceOf(AuthException.class)
+                .hasMessageContaining(AuthErrorCode.INVALID_JWT_TOKEN.getMessage());
+    }
+
+    @Test
+    @DisplayName("유효한 토큰에서 이메일을 성공적으로 추출한다.")
+    void getEmailFromToken_Success() {
+        // given
+        String token = jwtUtil.generateTemporaryToken(EMAIL);
+
+        // when
+        String extractedEmail = jwtUtil.getEmailFromToken(token);
+
+        // then
+        assertThat(extractedEmail).isEqualTo(EMAIL);
     }
 }

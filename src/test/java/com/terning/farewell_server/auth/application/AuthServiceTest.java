@@ -48,16 +48,12 @@ class AuthServiceTest {
     void sendVerificationCode_should_call_dependencies_in_correct_order() {
         // given
         when(verificationCodeManager.issueCode(EMAIL)).thenReturn(MOCK_CODE);
-
         doNothing().when(emailService).sendVerificationCode(EMAIL, MOCK_CODE);
 
         // when
         authService.sendVerificationCode(EMAIL);
 
         // then
-        verify(verificationCodeManager, times(1)).issueCode(EMAIL);
-        verify(emailService, times(1)).sendVerificationCode(EMAIL, MOCK_CODE);
-
         InOrder inOrder = inOrder(verificationCodeManager, emailService);
         inOrder.verify(verificationCodeManager).issueCode(EMAIL);
         inOrder.verify(emailService).sendVerificationCode(EMAIL, MOCK_CODE);
@@ -92,5 +88,24 @@ class AuthServiceTest {
                 .hasMessageContaining(AuthErrorCode.INVALID_VERIFICATION_CODE.getMessage());
 
         verify(jwtUtil, never()).generateTemporaryToken(anyString());
+    }
+
+    @Test
+    @DisplayName("Authorization 헤더로부터 이메일을 성공적으로 추출한다.")
+    void getEmailFromToken_Success() {
+        // given
+        String authorizationHeader = "Bearer " + MOCK_TOKEN;
+        when(jwtUtil.resolveToken(authorizationHeader)).thenReturn(MOCK_TOKEN);
+        when(jwtUtil.getEmailFromToken(MOCK_TOKEN)).thenReturn(EMAIL);
+
+        // when
+        String extractedEmail = authService.getEmailFromToken(authorizationHeader);
+
+        // then
+        assertThat(extractedEmail).isEqualTo(EMAIL);
+
+        InOrder inOrder = inOrder(jwtUtil);
+        inOrder.verify(jwtUtil).resolveToken(authorizationHeader);
+        inOrder.verify(jwtUtil).getEmailFromToken(MOCK_TOKEN);
     }
 }
