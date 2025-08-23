@@ -8,8 +8,12 @@ import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -38,14 +42,21 @@ public class EventApplyService {
                 throw new EventException(EventErrorCode.ALREADY_PROCESSING_REQUEST);
             }
 
-            Long stock = redisTemplate.opsForValue().decrement(giftStockKey);
+            String script = "local stock = redis.call('decr', KEYS[1]) " +
+                    "if tonumber(stock) < 0 then " +
+                    "  redis.call('incr', KEYS[1]) " +
+                    "  return -1 " +
+                    "end " +
+                    "return stock";
+
+            RedisScript<Long> redisScript = new DefaultRedisScript<>(script, Long.class);
+            Long stock = redisTemplate.execute(redisScript, Collections.singletonList(giftStockKey));
 
             if (stock == null) {
                 throw new EventException(EventErrorCode.GIFT_STOCK_INFO_NOT_FOUND);
             }
 
             if (stock < 0) {
-                redisTemplate.opsForValue().increment(giftStockKey);
                 log.info("선착순 마감되었습니다. [사용자: {}]", email);
                 throw new EventException(EventErrorCode.EVENT_CLOSED);
             }
