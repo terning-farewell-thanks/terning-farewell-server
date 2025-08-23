@@ -23,4 +23,9 @@ public class AuthService {
 
         return jwtUtil.generateTemporaryToken(email);
     }
+
+    public String getEmailFromToken(String authorizationHeader) {
+        String token = jwtUtil.resolveToken(authorizationHeader);
+        return jwtUtil.getEmailFromToken(token);
+    }
 }
