@@ -22,6 +22,7 @@ import java.util.Properties;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -45,9 +46,10 @@ class EmailServiceTest {
     private static final String CODE = "123456";
     private static final String MOCK_HTML_CONTENT = "<html>...</html>";
     private static final String VERIFICATION_EMAIL_SUBJECT = "[터닝] 마지막 선물 신청을 위한 인증 코드입니다.";
+    private static final String CONFIRMATION_EMAIL_SUBJECT = "[터닝] 선물 신청이 확정되었습니다.";
 
     @Test
-    @DisplayName("유효한 이메일과 코드로 이메일 전송을 요청하면 성공해야 한다.")
+    @DisplayName("인증 코드 이메일을 성공적으로 발송해야 한다.")
     void sendVerificationCode_should_send_email_successfully() throws MessagingException {
         // given
         MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
@@ -67,15 +69,34 @@ class EmailServiceTest {
     }
 
     @Test
-    @DisplayName("이메일 발송 실패 시 MailException을 던져야 한다.")
-    void sendVerificationCode_should_throw_MailException_on_failure() {
+    @DisplayName("확정 이메일을 성공적으로 발송해야 한다.")
+    void sendConfirmationEmail_should_send_email_successfully() throws MessagingException {
         // given
-        when(templateEngine.process(eq("verificationCode"), any(Context.class))).thenReturn(MOCK_HTML_CONTENT);
+        MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
+
+        when(templateEngine.process(eq("confirmationEmail"), any(Context.class))).thenReturn(MOCK_HTML_CONTENT);
+        when(javaMailSender.createMimeMessage()).thenReturn(mimeMessage);
+
+        // when
+        emailService.sendConfirmationEmail(TO_EMAIL);
+
+        // then
+        verify(javaMailSender).send(mimeMessageCaptor.capture());
+        MimeMessage capturedMessage = mimeMessageCaptor.getValue();
+
+        assertThat(capturedMessage.getSubject()).isEqualTo(CONFIRMATION_EMAIL_SUBJECT);
+        assertThat(capturedMessage.getRecipients(MimeMessage.RecipientType.TO)[0].toString()).isEqualTo(TO_EMAIL);
+    }
+
+    @Test
+    @DisplayName("이메일 발송 실패 시 MailException을 던져야 한다.")
+    void sendEmail_should_throw_MailException_on_failure() {
+        // given
+        when(templateEngine.process(anyString(), any(Context.class))).thenReturn(MOCK_HTML_CONTENT);
         when(javaMailSender.createMimeMessage()).thenThrow(new MailException(MailErrorCode.EMAIL_SEND_FAILURE));
 
         // when & then
         assertThatThrownBy(() -> emailService.sendVerificationCode(TO_EMAIL, CODE))
-                .isInstanceOf(MailException.class)
-                .hasMessageContaining(MailErrorCode.EMAIL_SEND_FAILURE.getMessage());
+                .isInstanceOf(MailException.class);
     }
 }

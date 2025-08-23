@@ -21,6 +21,7 @@ public class EmailService {
     private final SpringTemplateEngine templateEngine;
 
     private static final String VERIFICATION_EMAIL_SUBJECT = "[터닝] 마지막 선물 신청을 위한 인증 코드입니다.";
+    private static final String CONFIRMATION_EMAIL_SUBJECT = "[터닝] 선물 신청이 확정되었습니다.";
 
     public void sendVerificationCode(String toEmail, String code) {
         Context context = new Context();
@@ -29,6 +30,14 @@ public class EmailService {
         String htmlContent = templateEngine.process("verificationCode", context);
 
         sendEmail(toEmail, VERIFICATION_EMAIL_SUBJECT, htmlContent);
+    }
+
+    public void sendConfirmationEmail(String toEmail) {
+        Context context = new Context();
+
+        String htmlContent = templateEngine.process("confirmationEmail", context);
+
+        sendEmail(toEmail, CONFIRMATION_EMAIL_SUBJECT, htmlContent);
     }
 
     private void sendEmail(String toEmail, String subject, String htmlBody) {
