@@ -98,7 +98,7 @@ public class JwtUtil {
                     .parseClaimsJws(token)
                     .getBody();
         } catch (ExpiredJwtException e) {
-            return e.getClaims();
+            throw new AuthException(AuthErrorCode.EXPIRED_JWT_TOKEN);
         }
     }
 }
