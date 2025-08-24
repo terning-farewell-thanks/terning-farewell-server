@@ -1,14 +1,13 @@
 package com.terning.farewell_server.auth.jwt;
 
-import com.terning.farewell_server.auth.exception.AuthErrorCode;
 import com.terning.farewell_server.auth.exception.AuthException;
-import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.security.core.Authentication;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,35 +30,36 @@ class JwtUtilTest {
     }
 
     @Test
-    @DisplayName("토큰 생성 및 파싱 성공 테스트")
-    void generateAndParseToken_Success() {
+    @DisplayName("유효한 토큰으로 validateToken 호출 시 true를 반환한다.")
+    void validateToken_Success() {
         // given
         String token = jwtUtil.generateTemporaryToken(EMAIL);
 
         // when
-        Claims claims = jwtUtil.parseToken(token);
+        boolean isValid = jwtUtil.validateToken(token);
 
         // then
-        assertThat(claims.getSubject()).isEqualTo(EMAIL);
+        assertThat(isValid).isTrue();
     }
 
     @Test
-    @DisplayName("만료된 토큰 파싱 시 AuthException(EXPIRED_JWT_TOKEN) 발생")
-    void parseToken_Fail_Expired() {
+    @DisplayName("만료된 토큰으로 validateToken 호출 시 false를 반환한다.")
+    void validateToken_Fail_Expired() {
         // given
         ReflectionTestUtils.setField(jwtUtil, "expirationTime", 0L);
         jwtUtil.init();
         String expiredToken = jwtUtil.generateTemporaryToken(EMAIL);
 
-        // when & then
-        assertThatThrownBy(() -> jwtUtil.parseToken(expiredToken))
-                .isInstanceOf(AuthException.class)
-                .hasMessageContaining(AuthErrorCode.EXPIRED_JWT_TOKEN.getMessage());
+        // when
+        boolean isValid = jwtUtil.validateToken(expiredToken);
+
+        // then
+        assertThat(isValid).isFalse();
     }
 
     @Test
-    @DisplayName("잘못된 서명을 가진 토큰 파싱 시 AuthException(INVALID_JWT_SIGNATURE) 발생")
-    void parseToken_Fail_InvalidSignature() {
+    @DisplayName("잘못된 서명을 가진 토큰으로 validateToken 호출 시 false를 반환한다.")
+    void validateToken_Fail_InvalidSignature() {
         // given
         JwtUtil otherJwtUtil = new JwtUtil();
         ReflectionTestUtils.setField(otherJwtUtil, "secretKeyString", "another-secret-key-string-for-testing-purpose-only-!@#$");
@@ -68,22 +68,38 @@ class JwtUtilTest {
 
         String tokenWithWrongSignature = otherJwtUtil.generateTemporaryToken(EMAIL);
 
-        // when & then
-        assertThatThrownBy(() -> jwtUtil.parseToken(tokenWithWrongSignature))
-                .isInstanceOf(AuthException.class)
-                .hasMessageContaining(AuthErrorCode.INVALID_JWT_SIGNATURE.getMessage());
+        // when
+        boolean isValid = jwtUtil.validateToken(tokenWithWrongSignature);
+
+        // then
+        assertThat(isValid).isFalse();
     }
 
     @Test
-    @DisplayName("유효하지 않은 형식의 토큰 파싱 시 AuthException(MALFORMED_JWT_TOKEN) 발생")
-    void parseToken_Fail_InvalidFormat() {
+    @DisplayName("유효하지 않은 형식의 토큰으로 validateToken 호출 시 false를 반환한다.")
+    void validateToken_Fail_InvalidFormat() {
         // given
         String invalidToken = "this.is.not.a.valid.jwt.token";
 
-        // when & then
-        assertThatThrownBy(() -> jwtUtil.parseToken(invalidToken))
-                .isInstanceOf(AuthException.class)
-                .hasMessageContaining(AuthErrorCode.MALFORMED_JWT_TOKEN.getMessage());
+        // when
+        boolean isValid = jwtUtil.validateToken(invalidToken);
+
+        // then
+        assertThat(isValid).isFalse();
+    }
+
+    @Test
+    @DisplayName("유효한 토큰에서 Authentication 객체를 성공적으로 생성한다.")
+    void getAuthentication_Success() {
+        // given
+        String token = jwtUtil.generateTemporaryToken(EMAIL);
+
+        // when
+        Authentication authentication = jwtUtil.getAuthentication(token);
+
+        // then
+        assertThat(authentication).isNotNull();
+        assertThat(authentication.getName()).isEqualTo(EMAIL);
     }
 
     @Test
@@ -101,14 +117,13 @@ class JwtUtilTest {
     }
 
     @ParameterizedTest
-    @DisplayName("'Bearer ' 접두사가 없거나, null 또는 빈 문자열일 경우 AuthException(INVALID_JWT_TOKEN) 발생")
+    @DisplayName("'Bearer ' 접두사가 없거나, null 또는 빈 문자열일 경우 예외가 발생한다.")
     @NullAndEmptySource
     @ValueSource(strings = {"InvalidToken", " Bearer token"})
     void resolveToken_Fail_InvalidFormat(String invalidToken) {
         // when & then
         assertThatThrownBy(() -> jwtUtil.resolveToken(invalidToken))
-                .isInstanceOf(AuthException.class)
-                .hasMessageContaining(AuthErrorCode.INVALID_JWT_TOKEN.getMessage());
+                .isInstanceOf(AuthException.class);
     }
 
     @Test

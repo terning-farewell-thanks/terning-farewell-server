@@ -1,13 +1,16 @@
 package com.terning.farewell_server.event.api;
 
-import com.terning.farewell_server.auth.application.AuthService;
-import com.terning.farewell_server.auth.jwt.JwtUtil;
-import com.terning.farewell_server.event.application.EventFacade;
+import com.terning.farewell_server.event.application.EventService;
+import com.terning.farewell_server.event.dto.response.StatusResponse;
 import com.terning.farewell_server.event.success.EventSuccessCode;
 import com.terning.farewell_server.global.success.SuccessResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,16 +19,22 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/event")
 public class EventController {
 
-    private final EventFacade eventFacade;
-    private final AuthService authService;
+    private final EventService eventService;
 
     @PostMapping("/apply")
-    public SuccessResponse<Void> applyForGift(
-            @RequestHeader(JwtUtil.AUTHORIZATION_HEADER) String authorizationHeader) {
+    public ResponseEntity<SuccessResponse<Void>> applyForGift(@AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails.getUsername();
+        eventService.applyForGift(email);
+        return new ResponseEntity<>(
+                SuccessResponse.from(EventSuccessCode.EVENT_APPLICATION_ACCEPTED),
+                HttpStatus.ACCEPTED
+        );
+    }
 
-        String email = authService.getEmailFromToken(authorizationHeader);
-        eventFacade.applyForGift(email);
-
-        return SuccessResponse.from(EventSuccessCode.EVENT_APPLICATION_ACCEPTED);
+    @GetMapping("/status")
+    public ResponseEntity<SuccessResponse<StatusResponse>> getApplicationStatus(@AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails.getUsername();
+        StatusResponse statusResponse = eventService.getApplicationStatus(email);
+        return ResponseEntity.ok(SuccessResponse.of(EventSuccessCode.GET_EVENT_STATUS_SUCCESS, statusResponse));
     }
 }
