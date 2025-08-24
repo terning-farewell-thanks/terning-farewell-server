@@ -1,19 +1,18 @@
 package com.terning.farewell_server.event.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.terning.farewell_server.auth.application.AuthService;
-import com.terning.farewell_server.event.application.EventFacade;
+import com.terning.farewell_server.auth.jwt.JwtUtil;
+import com.terning.farewell_server.event.application.EventService;
+import com.terning.farewell_server.event.dto.response.StatusResponse;
 import com.terning.farewell_server.event.exception.EventErrorCode;
 import com.terning.farewell_server.event.exception.EventException;
+import com.terning.farewell_server.event.success.EventSuccessCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -21,83 +20,107 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(EventController.class)
-@Import(EventControllerTest.MockConfig.class)
 class EventControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private EventFacade eventFacade;
+    @MockBean
+    private EventService eventService;
 
-    @Autowired
-    private AuthService authService;
-
-    @TestConfiguration
-    static class MockConfig {
-        @Bean
-        public EventFacade eventFacade() {
-            return Mockito.mock(EventFacade.class);
-        }
-
-        @Bean
-        public AuthService authService() {
-            return Mockito.mock(AuthService.class);
-        }
-    }
+    @MockBean
+    private JwtUtil jwtUtil;
 
     @Test
+    @WithMockUser(username = "test@example.com")
     @DisplayName("선물 신청 API 호출에 성공한다.")
     void applyForGift_Success() throws Exception {
         // given
-        String token = "Bearer dummy-token";
         String email = "test@example.com";
-
-        when(authService.getEmailFromToken(anyString())).thenReturn(email);
-        doNothing().when(eventFacade).applyForGift(email);
+        doNothing().when(eventService).applyForGift(email);
 
         // when
         ResultActions resultActions = mockMvc.perform(post("/api/event/apply")
-                .header("Authorization", token)
                 .contentType(MediaType.APPLICATION_JSON)
+                .with(csrf())
         );
 
         // then
         resultActions
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value(202))
-                .andExpect(jsonPath("$.message").value("신청이 정상적으로 접수되었습니다. 최종 결과는 이메일로 안내됩니다."))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value(EventSuccessCode.EVENT_APPLICATION_ACCEPTED.getStatus().value()))
+                .andExpect(jsonPath("$.message").value(EventSuccessCode.EVENT_APPLICATION_ACCEPTED.getMessage()))
                 .andDo(print());
     }
 
     @Test
+    @WithMockUser(username = "test@example.com")
     @DisplayName("선착순 마감으로 선물 신청에 실패한다.")
     void applyForGift_Fail_EventClosed() throws Exception {
         // given
-        String token = "Bearer dummy-token";
         String email = "test@example.com";
-
-        when(authService.getEmailFromToken(anyString())).thenReturn(email);
         doThrow(new EventException(EventErrorCode.EVENT_CLOSED))
-                .when(eventFacade).applyForGift(email);
+                .when(eventService).applyForGift(email);
 
         // when
         ResultActions resultActions = mockMvc.perform(post("/api/event/apply")
-                .header("Authorization", token)
                 .contentType(MediaType.APPLICATION_JSON)
+                .with(csrf())
         );
 
         // then
         resultActions
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.message").value("[EVENT ERROR] 아쉽지만 선착순 마감되었습니다."))
+                .andExpect(jsonPath("$.status").value(EventErrorCode.EVENT_CLOSED.getStatus().value()))
+                .andExpect(jsonPath("$.message").value(EventErrorCode.EVENT_CLOSED.getMessage()))
+                .andDo(print());
+    }
+
+    @Test
+    @WithMockUser(username = "test@example.com")
+    @DisplayName("신청 상태 조회 API 호출에 성공한다.")
+    void getApplicationStatus_Success() throws Exception {
+        // given
+        StatusResponse mockResponse = new StatusResponse("ACCEPTED", "신청 결과: ACCEPTED");
+        when(eventService.getApplicationStatus(anyString())).thenReturn(mockResponse);
+
+        // when
+        ResultActions resultActions = mockMvc.perform(get("/api/event/status"));
+
+        // then
+        resultActions
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(EventSuccessCode.GET_EVENT_STATUS_SUCCESS.getStatus().value()))
+                .andExpect(jsonPath("$.message").value(EventSuccessCode.GET_EVENT_STATUS_SUCCESS.getMessage()))
+                .andExpect(jsonPath("$.result.status").value("ACCEPTED"))
+                .andExpect(jsonPath("$.result.message").value("신청 결과: ACCEPTED"))
+                .andDo(print());
+    }
+
+    @Test
+    @WithMockUser(username = "test@example.com")
+    @DisplayName("신청 내역이 없을 때 상태 조회 API 호출에 실패한다.")
+    void getApplicationStatus_Fail_WhenNotFound() throws Exception {
+        // given
+        when(eventService.getApplicationStatus(anyString()))
+                .thenThrow(new EventException(EventErrorCode.APPLICATION_NOT_FOUND));
+
+        // when
+        ResultActions resultActions = mockMvc.perform(get("/api/event/status"));
+
+        // then
+        resultActions
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(EventErrorCode.APPLICATION_NOT_FOUND.getStatus().value()))
+                .andExpect(jsonPath("$.message").value(EventErrorCode.APPLICATION_NOT_FOUND.getMessage()))
                 .andDo(print());
     }
 }

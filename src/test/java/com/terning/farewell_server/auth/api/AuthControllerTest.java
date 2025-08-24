@@ -6,18 +6,17 @@ import com.terning.farewell_server.auth.dto.request.EmailRequest;
 import com.terning.farewell_server.auth.dto.request.VerifyCodeRequest;
 import com.terning.farewell_server.auth.exception.AuthErrorCode;
 import com.terning.farewell_server.auth.exception.AuthException;
+import com.terning.farewell_server.auth.jwt.JwtUtil;
 import com.terning.farewell_server.global.error.GlobalErrorCode;
 import com.terning.farewell_server.global.success.GlobalSuccessCode;
 import com.terning.farewell_server.mail.exception.MailErrorCode;
 import com.terning.farewell_server.mail.exception.MailException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -30,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
-@Import(AuthControllerTest.MockConfig.class)
+@AutoConfigureMockMvc(addFilters = false)
 class AuthControllerTest {
 
     @Autowired
@@ -39,16 +38,11 @@ class AuthControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Autowired
+    @MockBean
     private AuthService authService;
 
-    @TestConfiguration
-    static class MockConfig {
-        @Bean
-        AuthService authService() {
-            return Mockito.mock(AuthService.class);
-        }
-    }
+    @MockBean
+    private JwtUtil jwtUtil;
 
     @Test
     @DisplayName("유효한 이메일로 인증 코드 발송을 요청하면 표준 성공 응답(200 OK)을 반환한다.")
