@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum EventErrorCode implements ErrorCode {
+    APPLICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 이메일로 등록된 신청 내역이 없습니다."),
+
     EVENT_CLOSED(HttpStatus.CONFLICT, "아쉽지만 선착순 마감되었습니다."),
     ALREADY_PROCESSING_REQUEST(HttpStatus.CONFLICT, "현재 다른 요청을 처리 중입니다. 잠시 후 다시 시도해주세요."),
 
