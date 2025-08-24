@@ -10,16 +10,23 @@ import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SecurityException;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import javax.crypto.SecretKey;
+import java.util.Collections;
 import java.util.Date;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class JwtUtil {
 
     public static final String AUTHORIZATION_HEADER = "Authorization";
@@ -58,31 +65,40 @@ public class JwtUtil {
     }
 
     public String getEmailFromToken(String token) {
-        return parseToken(token).getSubject();
+        return parseClaims(token).getSubject();
     }
 
-    public Claims parseToken(String token) {
+    public Authentication getAuthentication(String accessToken) {
+        Claims claims = parseClaims(accessToken);
+        UserDetails principal = new User(claims.getSubject(), "", Collections.emptyList());
+        return new UsernamePasswordAuthenticationToken(principal, "", Collections.emptyList());
+    }
+
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token);
+            return true;
+        } catch (SecurityException | MalformedJwtException e) {
+            log.warn("유효하지 않은 JWT 서명입니다.", e);
+        } catch (ExpiredJwtException e) {
+            log.warn("만료된 JWT 토큰입니다.", e);
+        } catch (UnsupportedJwtException e) {
+            log.warn("지원되지 않는 JWT 토큰입니다.", e);
+        } catch (IllegalArgumentException e) {
+            log.warn("JWT 토큰이 잘못되었습니다.", e);
+        }
+        return false;
+    }
+
+    private Claims parseClaims(String token) {
         try {
             return Jwts.parserBuilder()
                     .setSigningKey(secretKey)
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
-        } catch (SecurityException e) {
-            log.warn("유효하지 않은 JWT 서명입니다.", e);
-            throw new AuthException(AuthErrorCode.INVALID_JWT_SIGNATURE);
-        } catch (MalformedJwtException e) {
-            log.warn("잘못된 형식의 JWT 토큰입니다.", e);
-            throw new AuthException(AuthErrorCode.MALFORMED_JWT_TOKEN);
         } catch (ExpiredJwtException e) {
-            log.warn("만료된 JWT 토큰입니다.", e);
-            throw new AuthException(AuthErrorCode.EXPIRED_JWT_TOKEN);
-        } catch (UnsupportedJwtException e) {
-            log.warn("지원되지 않는 JWT 토큰입니다.", e);
-            throw new AuthException(AuthErrorCode.UNSUPPORTED_JWT_TOKEN);
-        } catch (IllegalArgumentException e) {
-            log.warn("JWT 토큰이 잘못되었습니다.", e);
-            throw new AuthException(AuthErrorCode.INVALID_JWT_TOKEN);
+            return e.getClaims();
         }
     }
 }
