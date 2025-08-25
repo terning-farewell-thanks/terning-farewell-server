@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>터닝 이메일 인증</title>
+</head>
+<body>
+<h1>[터닝] 이메일 인증</h1>
+<p>안녕하세요. 터닝의 마지막 선물을 신청해주셔서 감사합니다.</p>
+<p>아래 인증 코드를 입력하여 이메일 인증을 완료해주세요.</p>
+<br>
+<div style="border: 1px solid #e9e9e9; padding: 20px; font-family: sans-serif;">
+    <h3 style="color: #4a4a4a;">인증 코드</h3>
+    <p style="font-size: 24px; font-weight: bold; color: #007bff;" th:text="${code}"></p>
+</div>
+<br>
+<p>본인이 요청하지 않은 경우 이 메일을 무시해주세요.</p>
+<p>감사합니다.</p>
+</body>
+</html>
