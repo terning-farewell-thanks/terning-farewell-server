@@ -72,9 +72,6 @@ nbdist/
 # Custom private configurations
 application-private.yml
 
-# Spring configuration directory for CI/CD
-/src/main/resources/
-
 # =================================================
 # Miscellaneous
 # =================================================
