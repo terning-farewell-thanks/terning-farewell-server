@@ -1,3 +1,0 @@
-# redisson-config.yml
-singleServerConfig:
-  address: "redis://localhost:6379"
