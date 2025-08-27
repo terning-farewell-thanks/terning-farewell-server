@@ -68,7 +68,6 @@ dependencies {
 	// Testcontainers
 	testImplementation 'org.testcontainers:junit-jupiter'
 	testImplementation 'org.testcontainers:mysql'
-	testImplementation 'org.testcontainers:redis'
 	testImplementation 'org.testcontainers:kafka'
 }
 
