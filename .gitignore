@@ -91,5 +91,3 @@ HELP.md
 
 # virtual machine crash logs
 hs_err_pid*
-
-src/main/resources/*.yml
