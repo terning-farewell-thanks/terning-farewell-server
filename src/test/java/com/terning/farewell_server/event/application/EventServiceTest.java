@@ -5,6 +5,7 @@ import com.terning.farewell_server.application.domain.ApplicationRepository;
 import com.terning.farewell_server.application.domain.ApplicationStatus;
 import com.terning.farewell_server.event.dto.response.StatusResponse;
 import com.terning.farewell_server.event.exception.EventException;
+import com.terning.farewell_server.util.IntegrationTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,13 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+
 
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
@@ -37,20 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
-@Testcontainers
-@ActiveProfiles("test")
-class EventServiceTest {
-
-    @Container
-    static final GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7"))
-            .withExposedPorts(6379);
-
-    @DynamicPropertySource
-    static void setProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.data.redis.host", redis::getHost);
-        registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379).toString());
-        registry.add("event.gift-stock-key", () -> "event:gift:stock");
-    }
+class EventServiceTest extends IntegrationTestSupport {
 
     @Autowired
     private EventService eventService;
