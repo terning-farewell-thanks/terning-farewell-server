@@ -29,13 +29,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: 설정 파일 생성 (.yml)
-        run: |
-          mkdir -p ./src/main/resources
-          echo "${{ secrets.YML }}" > ./src/main/resources/application.yml
-          echo "${{ secrets.YML_PROD }}" > ./src/main/resources/application-prod.yml
-          echo "${{ secrets.REDISSON_YML_PROD }}" > ./src/main/resources/redisson-config-prod.yml
-
       - name: 빌드 (Gradle)
         run: |
           chmod +x gradlew
@@ -50,10 +43,10 @@ jobs:
       - name: Docker 이미지 빌드 및 푸시
         run: |
           GIT_TAG=$(git rev-parse --short HEAD)
-          
+
           docker build --platform linux/amd64 -t jsoonworld/terning-farewell-server:$GIT_TAG .
           docker push jsoonworld/terning-farewell-server:$GIT_TAG
-          
+
           docker tag jsoonworld/terning-farewell-server:$GIT_TAG jsoonworld/terning-farewell-server:latest
           docker push jsoonworld/terning-farewell-server:latest
 
