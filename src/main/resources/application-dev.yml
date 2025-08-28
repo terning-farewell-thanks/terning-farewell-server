@@ -6,7 +6,6 @@ spring:
     url: ${DATASOURCE_URL}
     username: ${DATASOURCE_USERNAME}
     password: ${DATASOURCE_PASSWORD}
-
   jpa:
     hibernate:
       ddl-auto: update
@@ -15,12 +14,10 @@ spring:
         format_sql: true
         default_batch_fetch_size: 100
     open-in-view: false
-
   data:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
-
   mail:
     host: smtp.gmail.com
     port: 587
@@ -32,7 +29,6 @@ spring:
           auth: true
           starttls:
             enable: true
-
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     producer:
@@ -44,13 +40,16 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
-
 redisson:
   file: classpath:redisson-config.yml
 
 event:
   gift-stock-key: "event:gift:stock"
   kafka-topic: "event-application"
+
+admin:
+  secret-key: ${ADMIN_SECRET_KEY}
+  header-name: "X-ADMIN-KEY"
 
 jwt:
   secret:
