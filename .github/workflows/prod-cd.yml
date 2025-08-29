@@ -58,6 +58,7 @@ jobs:
         with:
           repository: terning-farewell-thanks/terning-farewell-client
           path: client
+          token: ${{ secrets.GH_PAT }} 
 
       - name: Node.js 20.x 버전 설정
         uses: actions/setup-node@v4
