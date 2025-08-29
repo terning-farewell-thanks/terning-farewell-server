@@ -15,9 +15,6 @@ spring:
         format_sql: true
     open-in-view: true
 
-  # data:
-  #   redis:
-
   mail:
     host: localhost
     port: 25
@@ -36,6 +33,10 @@ spring:
 event:
   gift-stock-key: "event:gift:stock:test"
   kafka-topic: "event-application-test"
+
+admin:
+  secret-key: "test-secret-key"
+  header-name: "X-ADMIN-KEY"
 
 jwt:
   secret:

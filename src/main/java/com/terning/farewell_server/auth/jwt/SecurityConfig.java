@@ -52,7 +52,8 @@ public class SecurityConfig {
                                 "/js/**",
                                 "/images/**",
                                 "/api/auth/**",
-                                "/actuator/**"
+                                "/actuator/**",
+                                "/api/admin/**"
                         ).permitAll()
                         .requestMatchers("/api/event/**").authenticated()
                         .anyRequest().authenticated()
