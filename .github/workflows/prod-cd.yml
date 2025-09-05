@@ -63,7 +63,7 @@ jobs:
           key: ${{ secrets.SERVER_KEY }}
           source: "deploy.sh"
           target: "~/."
-
+          
       - name: Run deployment script on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
