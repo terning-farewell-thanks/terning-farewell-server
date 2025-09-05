@@ -21,14 +21,12 @@ public class EventConsumer {
     private final ApplicationService applicationService;
     private final EmailService emailService;
 
-    private static final String KAFKA_TOPIC = "event-application";
-
     @RetryableTopic(
             attempts = "3",
             backoff = @Backoff(delay = 1000, multiplier = 2),
             dltStrategy = DltStrategy.FAIL_ON_ERROR
     )
-    @KafkaListener(topics = KAFKA_TOPIC)
+    @KafkaListener(topics = "${event.kafka-topic}")
     public void handleApplication(String email, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
         log.info("Kafka 메시지 수신 [Topic: {}]: {}", topic, email);
         applicationService.saveApplication(email);
