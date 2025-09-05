@@ -55,9 +55,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Copy deployment script to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
