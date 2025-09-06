@@ -2,6 +2,7 @@ package com.terning.farewell_server.event.application;
 
 import com.terning.farewell_server.application.domain.Application;
 import com.terning.farewell_server.application.domain.ApplicationRepository;
+import com.terning.farewell_server.application.domain.ApplicationStatus;
 import com.terning.farewell_server.event.dto.response.StatusResponse;
 import com.terning.farewell_server.event.exception.EventErrorCode;
 import com.terning.farewell_server.event.exception.EventException;
@@ -76,11 +77,12 @@ public class EventService {
 
             if (remainingStock < 0) {
                 log.info(LOG_EVENT_CLOSED, email);
+                kafkaTemplate.send(kafkaTopic, email + ":" + ApplicationStatus.FAILURE.name());
                 throw new EventException(EventErrorCode.EVENT_CLOSED);
             }
 
             log.info(LOG_EVENT_PASSED, email, remainingStock);
-            kafkaTemplate.send(kafkaTopic, email);
+            kafkaTemplate.send(kafkaTopic, email + ":" + ApplicationStatus.SUCCESS.name());
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
