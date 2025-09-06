@@ -9,7 +9,8 @@ import com.terning.farewell_server.util.IntegrationTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -17,7 +18,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 
-
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -27,9 +28,13 @@ import java.util.stream.IntStream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
 
 @SpringBootTest
 class EventServiceTest extends IntegrationTestSupport {
@@ -52,43 +57,56 @@ class EventServiceTest extends IntegrationTestSupport {
     @Value("${event.gift-stock-key}")
     private String giftStockKey;
 
+    @Captor
+    private ArgumentCaptor<String> kafkaMessageCaptor;
+
     private static final int INITIAL_STOCK = 100;
     private static final String EMAIL = "user@example.com";
 
     @BeforeEach
     void setUp() {
         redisTemplate.opsForValue().set(giftStockKey, String.valueOf(INITIAL_STOCK));
+        reset(kafkaTemplate, applicationRepository);
     }
 
     @Test
-    @DisplayName("한 명의 사용자가 성공적으로 선물을 신청한다.")
+    @DisplayName("한 명의 사용자가 성공적으로 선물을 신청하면 SUCCESS 메시지를 Kafka로 보낸다.")
     void applyForGift_Success() {
+        // given
+        String successUserEmail = "user1@example.com";
+
         // when
-        eventService.applyForGift("user1@example.com");
+        eventService.applyForGift(successUserEmail);
 
         // then
         String stock = redisTemplate.opsForValue().get(giftStockKey);
         assertThat(stock).isEqualTo(String.valueOf(INITIAL_STOCK - 1));
-        verify(kafkaTemplate, times(1)).send(anyString(), anyString());
+
+        String expectedMessage = successUserEmail + ":" + ApplicationStatus.SUCCESS.name();
+        verify(kafkaTemplate, times(1)).send(anyString(), eq(expectedMessage));
     }
 
     @Test
-    @DisplayName("재고가 모두 소진된 후 신청하면 예외가 발생한다.")
+    @DisplayName("재고 소진 후 신청하면 예외가 발생하고 FAILURE 메시지를 Kafka로 보낸다.")
     void applyForGift_Fail_When_Stock_Is_Exhausted() {
         // given
         redisTemplate.opsForValue().set(giftStockKey, "0");
+        String lateUserEmail = "late_user@example.com";
 
         // when & then
         assertThrows(EventException.class, () -> {
-            eventService.applyForGift("late_user@example.com");
+            eventService.applyForGift(lateUserEmail);
         });
 
         String stock = redisTemplate.opsForValue().get(giftStockKey);
         assertThat(stock).isEqualTo("0");
+
+        String expectedMessage = lateUserEmail + ":" + ApplicationStatus.FAILURE.name();
+        verify(kafkaTemplate, times(1)).send(anyString(), eq(expectedMessage));
     }
 
     @Test
-    @DisplayName("10,000명이 100명씩 동시 접속하여 신청하면 정확히 100명만 성공해야 한다.")
+    @DisplayName("10,000명이 동시 신청하면, SUCCESS 100건과 FAILURE 9,900건의 메시지가 Kafka로 전송된다.")
     void applyForGift_Concurrency_Test() throws InterruptedException {
         // given
         int numberOfThreads = 100;
@@ -103,6 +121,7 @@ class EventServiceTest extends IntegrationTestSupport {
                     try {
                         eventService.applyForGift("user" + i + "@example.com");
                     } catch (EventException e) {
+                        // EventException은 정상적인 실패이므로 무시
                     } finally {
                         latch.countDown();
                     }
@@ -115,14 +134,28 @@ class EventServiceTest extends IntegrationTestSupport {
         // then
         String stock = redisTemplate.opsForValue().get(giftStockKey);
         assertThat(stock).isEqualTo("0");
-        verify(kafkaTemplate, times(INITIAL_STOCK)).send(anyString(), anyString());
+
+        verify(kafkaTemplate, times(totalRequests)).send(anyString(), kafkaMessageCaptor.capture());
+
+        List<String> capturedMessages = kafkaMessageCaptor.getAllValues();
+
+        long successCount = capturedMessages.stream()
+                .filter(message -> message.endsWith(":" + ApplicationStatus.SUCCESS.name()))
+                .count();
+
+        long failureCount = capturedMessages.stream()
+                .filter(message -> message.endsWith(":" + ApplicationStatus.FAILURE.name()))
+                .count();
+
+        assertThat(successCount).isEqualTo(INITIAL_STOCK);
+        assertThat(failureCount).isEqualTo(totalRequests - INITIAL_STOCK);
     }
 
     @Test
     @DisplayName("신청 내역이 존재하는 사용자의 상태 조회를 성공한다.")
     void getApplicationStatus_Success() {
         // given
-        Application mockApplication = Mockito.mock(Application.class);
+        Application mockApplication = mock(Application.class);
         when(mockApplication.getEmail()).thenReturn(EMAIL);
         when(mockApplication.getStatus()).thenReturn(ApplicationStatus.SUCCESS);
         when(applicationRepository.findByEmail(anyString()))
