@@ -91,3 +91,10 @@ HELP.md
 
 # virtual machine crash logs
 hs_err_pid*
+
+# =================================================
+# Generated test files
+# =================================================
+
+# Performance test JWT tokens
+performance/tokens.txt
