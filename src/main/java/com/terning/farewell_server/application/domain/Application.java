@@ -29,12 +29,12 @@ public class Application extends BaseTimeEntity {
     @Column(nullable = false)
     private ApplicationStatus status;
 
-    private Application(String email) {
+    private Application(String email, ApplicationStatus status) {
         this.email = email;
-        this.status = ApplicationStatus.SUCCESS;
+        this.status = status;
     }
 
-    public static Application from(String email) {
-        return new Application(email);
+    public static Application from(String email, ApplicationStatus status) {
+        return new Application(email, status);
     }
 }

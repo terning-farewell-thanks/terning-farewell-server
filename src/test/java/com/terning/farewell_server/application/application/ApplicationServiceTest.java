@@ -8,6 +8,8 @@ import com.terning.farewell_server.application.exception.ApplicationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -31,18 +33,25 @@ class ApplicationServiceTest {
     @InjectMocks
     private ApplicationService applicationService;
 
+    @Captor
+    private ArgumentCaptor<Application> applicationCaptor;
+
     @Test
-    @DisplayName("신규 이메일로 신청 시, 신청 내역이 성공적으로 저장된다.")
+    @DisplayName("신규 이메일로 신청 시, 전달된 상태와 함께 신청 내역이 성공적으로 저장된다.")
     void saveApplication_With_New_Email() {
         // given
         String newEmail = "new_user@example.com";
+        ApplicationStatus status = ApplicationStatus.SUCCESS;
         when(applicationRepository.existsByEmail(newEmail)).thenReturn(false);
 
         // when
-        applicationService.saveApplication(newEmail);
+        applicationService.saveApplication(newEmail, status);
 
         // then
-        verify(applicationRepository, times(1)).save(any(Application.class));
+        verify(applicationRepository, times(1)).save(applicationCaptor.capture());
+        Application savedApplication = applicationCaptor.getValue();
+        assertThat(savedApplication.getEmail()).isEqualTo(newEmail);
+        assertThat(savedApplication.getStatus()).isEqualTo(status);
     }
 
     @Test
@@ -50,10 +59,11 @@ class ApplicationServiceTest {
     void saveApplication_With_Existing_Email() {
         // given
         String existingEmail = "existing_user@example.com";
+        ApplicationStatus status = ApplicationStatus.SUCCESS;
         when(applicationRepository.existsByEmail(existingEmail)).thenReturn(true);
 
         // when
-        applicationService.saveApplication(existingEmail);
+        applicationService.saveApplication(existingEmail, status);
 
         // then
         verify(applicationRepository, never()).save(any(Application.class));
@@ -64,7 +74,7 @@ class ApplicationServiceTest {
     void getApplicationStatus_When_Application_Exists() {
         // given
         String existingEmail = "existing_user@example.com";
-        Application application = Application.from(existingEmail);
+        Application application = Application.from(existingEmail, ApplicationStatus.SUCCESS);
         when(applicationRepository.findByEmail(existingEmail)).thenReturn(Optional.of(application));
 
         // when
