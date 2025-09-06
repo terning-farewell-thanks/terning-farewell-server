@@ -1,6 +1,7 @@
 package com.terning.farewell_server.event.application;
 
 import com.terning.farewell_server.application.application.ApplicationService;
+import com.terning.farewell_server.application.domain.ApplicationStatus;
 import com.terning.farewell_server.mail.application.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,10 +28,24 @@ public class EventConsumer {
             dltStrategy = DltStrategy.FAIL_ON_ERROR
     )
     @KafkaListener(topics = "${event.kafka-topic}")
-    public void handleApplication(String email, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
-        log.info("Kafka 메시지 수신 [Topic: {}]: {}", topic, email);
-        applicationService.saveApplication(email);
-        emailService.sendConfirmationEmail(email);
+    public void handleApplication(String message, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
+        try {
+            String[] parts = message.split(":");
+            String email = parts[0];
+            ApplicationStatus status = ApplicationStatus.valueOf(parts[1]);
+
+            log.info("Kafka 메시지 수신 [Topic: {}]: Email={}, Status={}", topic, email, status);
+
+            applicationService.saveApplication(email, status);
+
+            if (status == ApplicationStatus.SUCCESS) {
+                emailService.sendConfirmationEmail(email);
+            }
+
+        } catch (Exception e) {
+            log.error("Kafka 메시지 처리 중 오류 발생: {}", message, e);
+            throw new RuntimeException("Kafka message processing failed for message: " + message, e);
+        }
     }
 
     @DltHandler
