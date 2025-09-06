@@ -29,11 +29,24 @@ public class EventConsumer {
     )
     @KafkaListener(topics = "${event.kafka-topic}")
     public void handleApplication(String message, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
-        try {
-            String[] parts = message.split(":");
-            String email = parts[0];
-            ApplicationStatus status = ApplicationStatus.valueOf(parts[1]);
+        String[] parts = message.split(":");
 
+        if (parts.length != 2) {
+            log.error("잘못된 형식의 Kafka 메시지 수신 [Topic: {}]: '{}'. 'email:STATUS' 형식을 따라야 합니다.", topic, message);
+            return;
+        }
+
+        String email = parts[0];
+        ApplicationStatus status;
+
+        try {
+            status = ApplicationStatus.valueOf(parts[1]);
+        } catch (IllegalArgumentException e) {
+            log.error("유효하지 않은 ApplicationStatus 값 수신 [Topic: {}]: '{}' in message '{}'", topic, parts[1], message);
+            return;
+        }
+
+        try {
             log.info("Kafka 메시지 수신 [Topic: {}]: Email={}, Status={}", topic, email, status);
 
             applicationService.saveApplication(email, status);
@@ -43,13 +56,13 @@ public class EventConsumer {
             }
 
         } catch (Exception e) {
-            log.error("Kafka 메시지 처리 중 오류 발생: {}", message, e);
+            log.error("Kafka 메시지 처리 중 비즈니스 로직 오류 발생: {}", message, e);
             throw new RuntimeException("Kafka message processing failed for message: " + message, e);
         }
     }
 
     @DltHandler
-    public void handleDlt(String email, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
-        log.error("[DLT] 최종 처리 실패 [Topic: {}]: {}", topic, email);
+    public void handleDlt(String message, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
+        log.error("[DLT] 최종 처리 실패 [Topic: {}]: {}", topic, message);
     }
 }
