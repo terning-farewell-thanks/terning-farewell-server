@@ -18,6 +18,7 @@ spring:
   mail:
     host: localhost
     port: 25
+    from: test@example.com #
     properties:
       mail:
         smtp:
