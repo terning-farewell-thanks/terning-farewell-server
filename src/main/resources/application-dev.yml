@@ -18,17 +18,30 @@ spring:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
+
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
+    # --- [로컬 성능 테스트용: MailHog 사용 시] ---
+    host: localhost
+    port: 1025
     properties:
       mail:
         smtp:
-          auth: true
+          auth: false
           starttls:
-            enable: true
+            enable: false
+
+    # --- [개발/배포용: Gmail 등 실제 메일 서버 사용 시] ---
+    # host: smtp.gmail.com
+    # port: 587
+    # username: ${MAIL_USERNAME}
+    # password: ${MAIL_PASSWORD}
+    # properties:
+    #   mail:
+    #     smtp:
+    #       auth: true
+    #       starttls:
+    #         enable: true
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     producer:

@@ -1,13 +1,38 @@
 version: '3.8'
 
 services:
+  # ------------------ Database ------------------
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: terning_farewell_local
+      MYSQL_USER: root
+      MYSQL_PASSWORD: Dpvmzlffk1!
+      MYSQL_ROOT_PASSWORD: Dpvmzlffk1!
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+
+  # ------------------ In-Memory Cache ------------------
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  # ------------------ Message Queue ------------------
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.3
     container_name: zookeeper
     ports:
       - "2181:2181"
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKeeper_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
@@ -24,3 +49,11 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  # ------------------ Email Tester ------------------
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
+    ports:
+      - "1025:1025" # SMTP Port
+      - "8025:8025" # Web UI Port
