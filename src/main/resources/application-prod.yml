@@ -35,7 +35,8 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
   mail:
-    host: smtp.gmail.com
+#    host: smtp.gmail.com
+    host: email-smtp.ap-northeast-2.amazonaws.com
     port: 587
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
