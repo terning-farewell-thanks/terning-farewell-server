@@ -35,9 +35,17 @@ public class EmailService {
     }
 
     public void sendConfirmationEmail(String toEmail) {
+        String targetEmail = toEmail;
+
+        if (toEmail.endsWith("@example.com")) {
+            String localPart = toEmail.substring(0, toEmail.indexOf('@'));
+            targetEmail = localPart + "+success@simulator.amazonses.com";
+            log.info("테스트용 이메일 감지. SES 시뮬레이터 주소로 변경: {} -> {}", toEmail, targetEmail);
+        }
+
         Context context = new Context();
         String htmlContent = templateEngine.process("confirmationEmail", context);
-        sendEmail(toEmail, CONFIRMATION_EMAIL_SUBJECT, htmlContent);
+        sendEmail(targetEmail, CONFIRMATION_EMAIL_SUBJECT, htmlContent);
     }
 
     private void sendEmail(String toEmail, String subject, String htmlBody) {
