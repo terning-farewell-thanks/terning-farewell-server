@@ -14,6 +14,8 @@ spring:
     url: ${DATASOURCE_URL}
     username: ${DATASOURCE_USERNAME}
     password: ${DATASOURCE_PASSWORD}
+    hikari:
+      maximum-pool-size: 50
   jpa:
     hibernate:
       ddl-auto: update
@@ -31,7 +33,7 @@ spring:
     # --- [로컬 성능 테스트용: MailHog 사용 시] ---
     host: localhost
     port: 1025
-    from: test@example.com # [수정] from 주소 추가
+    from: test@example.com
     properties:
       mail:
         smtp:
