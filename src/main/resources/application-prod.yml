@@ -2,6 +2,11 @@
 
 server:
   port: ${SERVER_PORT:8080}
+  tomcat:
+    threads:
+      max: 1600
+      min-spare: 50
+    accept-count: 200
 
 spring:
   config:
@@ -33,9 +38,8 @@ spring:
       group-id: farewell-group-prod
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-serializer: org.apache.kafka.common.serialization.StringDeserializer
   mail:
-    #    host: smtp.gmail.com
     host: email-smtp.ap-northeast-2.amazonaws.com
     port: 587
     username: ${MAIL_USERNAME}

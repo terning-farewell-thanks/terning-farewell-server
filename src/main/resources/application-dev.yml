@@ -1,5 +1,12 @@
 # src/main/resources/application-dev.yml
 
+server:
+  tomcat:
+    threads:
+      max: 1600
+      min-spare: 50
+    accept-count: 200
+
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
