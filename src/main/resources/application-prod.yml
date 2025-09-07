@@ -38,7 +38,9 @@ spring:
       group-id: farewell-group-prod
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-serializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      concurrency: 10
   mail:
     host: email-smtp.ap-northeast-2.amazonaws.com
     port: 587
