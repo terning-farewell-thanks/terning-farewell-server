@@ -2,6 +2,7 @@ package com.terning.farewell_server.event.application;
 
 import com.terning.farewell_server.application.application.ApplicationService;
 import com.terning.farewell_server.application.domain.ApplicationStatus;
+import com.terning.farewell_server.event.exception.EventException;
 import com.terning.farewell_server.mail.application.EmailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -83,17 +84,19 @@ class EventConsumerTest {
     }
 
     @Test
-    @DisplayName("Redis 스크립트 실행 결과가 null일 때, FAILURE 상태로 저장하고 이메일은 발송하지 않는다.")
-    void handleApplication_whenRedisReturnsNull_thenProcessFailure() {
+    @DisplayName("Redis 스크립트 실행 결과가 null일 때, 재시도를 위해 EventException을 던져야 한다.")
+    void handleApplication_whenRedisReturnsNull_thenThrowException() {
         // given
         when(redisTemplate.execute(any(RedisScript.class), any(List.class)))
                 .thenReturn(null);
 
-        // when
-        eventConsumer.handleApplication(EMAIL, TOPIC);
+        // when & then
+        assertThrows(EventException.class, () -> {
+            eventConsumer.handleApplication(EMAIL, TOPIC);
+        });
 
         // then
-        verify(applicationService, times(1)).saveApplication(EMAIL, ApplicationStatus.FAILURE);
+        verify(applicationService, never()).saveApplication(any(String.class), any(ApplicationStatus.class));
         verify(emailService, never()).sendConfirmationEmail(EMAIL);
     }
 

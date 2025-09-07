@@ -2,6 +2,8 @@ package com.terning.farewell_server.event.application;
 
 import com.terning.farewell_server.application.application.ApplicationService;
 import com.terning.farewell_server.application.domain.ApplicationStatus;
+import com.terning.farewell_server.event.exception.EventErrorCode;
+import com.terning.farewell_server.event.exception.EventException;
 import com.terning.farewell_server.mail.application.EmailService;
 import datadog.trace.api.Trace;
 import lombok.RequiredArgsConstructor;
@@ -55,10 +57,15 @@ public class EventConsumer {
     public void handleApplication(String email, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
         log.info("Kafka 메시지 수신 [Topic: {}]: Email={}", topic, email);
 
-        try {
-            Long remainingStock = redisTemplate.execute(DECREMENT_STOCK_SCRIPT, Collections.singletonList(giftStockKey));
+        Long remainingStock = redisTemplate.execute(DECREMENT_STOCK_SCRIPT, Collections.singletonList(giftStockKey));
 
-            if (remainingStock == null || remainingStock < 0) {
+        if (remainingStock == null) {
+            log.error("Redis로부터 재고 정보를 가져올 수 없습니다. 재시도를 위해 예외를 발생시킵니다. [사용자: {}]", email);
+            throw new EventException(EventErrorCode.GIFT_STOCK_INFO_NOT_FOUND);
+        }
+
+        try {
+            if (remainingStock < 0) {
                 log.info("선착순 마감. [사용자: {}]", email);
                 applicationService.saveApplication(email, ApplicationStatus.FAILURE);
                 return;
