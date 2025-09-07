@@ -16,6 +16,7 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.thymeleaf.context.Context;
@@ -118,15 +119,43 @@ class EmailServiceTest {
     }
 
     @Test
+    @DisplayName("확정 이메일 발송 시 @가 없는 이메일은 변환 없이 그대로 보내져야 한다.")
+    void sendConfirmationEmail_withInvalidEmail_shouldNotTransform() throws MessagingException {
+        // given
+        String invalidEmail = "invalid-email";
+        when(javaMailSender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
+
+        // when
+        emailService.sendConfirmationEmail(invalidEmail);
+
+        // then
+        verify(javaMailSender).send(mimeMessageCaptor.capture());
+        MimeMessage capturedMessage = mimeMessageCaptor.getValue();
+        assertThat(capturedMessage.getRecipients(Message.RecipientType.TO)[0].toString()).isEqualTo(invalidEmail);
+    }
+
+    @Test
     @DisplayName("MimeMessageHelper 작업 실패 시 커스텀 MailException을 던져야 한다.")
     void sendEmail_should_throw_CustomMailException_when_MimeHelperFails() throws MessagingException {
         // given
         MimeMessage mockMimeMessage = mock(MimeMessage.class);
-
         when(javaMailSender.createMimeMessage()).thenReturn(mockMimeMessage);
-
         doThrow(new MessagingException("Simulated MimeMessage failure"))
                 .when(mockMimeMessage).setFrom(any(Address.class));
+
+        // when & then
+        assertThatThrownBy(() -> emailService.sendVerificationCode("fail@example.com", "123"))
+                .isInstanceOf(MailException.class)
+                .hasFieldOrPropertyWithValue("errorCode", MailErrorCode.EMAIL_SEND_FAILURE);
+    }
+
+    @Test
+    @DisplayName("JavaMailSender.send() 실패 시 커스텀 MailException을 던져야 한다.")
+    void sendEmail_should_throw_CustomMailException_when_SenderFails() {
+        // given
+        when(javaMailSender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
+        doThrow(new MailSendException("Simulated sender failure"))
+                .when(javaMailSender).send(any(MimeMessage.class));
 
         // when & then
         assertThatThrownBy(() -> emailService.sendVerificationCode("fail@example.com", "123"))

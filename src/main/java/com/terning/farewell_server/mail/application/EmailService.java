@@ -26,6 +26,7 @@ public class EmailService {
 
     private static final String VERIFICATION_EMAIL_SUBJECT = "[터닝] 마지막 선물 신청을 위한 인증 코드입니다.";
     private static final String CONFIRMATION_EMAIL_SUBJECT = "[터닝] 선물 신청이 확정되었습니다.";
+    private static final String TEST_EMAIL_DOMAIN = "@example.com";
 
     public void sendVerificationCode(String toEmail, String code) {
         Context context = new Context();
@@ -37,7 +38,7 @@ public class EmailService {
     public void sendConfirmationEmail(String toEmail) {
         String targetEmail = toEmail;
 
-        if (toEmail.endsWith("@example.com")) {
+        if (toEmail.contains("@") && toEmail.endsWith(TEST_EMAIL_DOMAIN)) {
             String localPart = toEmail.substring(0, toEmail.indexOf('@'));
             targetEmail = localPart + "+success@simulator.amazonses.com";
             log.info("테스트용 이메일 감지. SES 시뮬레이터 주소로 변경: {} -> {}", toEmail, targetEmail);
@@ -60,7 +61,7 @@ public class EmailService {
 
             javaMailSender.send(mimeMessage);
             log.info("이메일 발송 성공! 수신자: {}, 제목: {}", toEmail, subject);
-        } catch (MessagingException e) {
+        } catch (MessagingException | org.springframework.mail.MailException e) {
             log.error("이메일 발송 실패. 수신자: {}", toEmail, e);
             throw new MailException(MailErrorCode.EMAIL_SEND_FAILURE);
         }
