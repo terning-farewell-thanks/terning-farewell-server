@@ -6,6 +6,10 @@ import com.terning.farewell_server.mail.application.EmailService;
 import datadog.trace.api.Trace;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
@@ -15,6 +19,8 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -22,6 +28,22 @@ public class EventConsumer {
 
     private final ApplicationService applicationService;
     private final EmailService emailService;
+    private final StringRedisTemplate redisTemplate;
+
+    @Value("${event.gift-stock-key}")
+    private String giftStockKey;
+
+    private static final String DECREMENT_STOCK_LUA_SCRIPT =
+            "local stock = redis.call('decr', KEYS[1]) " +
+                    "if tonumber(stock) < 0 then " +
+                    "  redis.call('incr', KEYS[1]) " +
+                    "  return -1 " +
+                    "end " +
+                    "return stock";
+
+    private static final RedisScript<Long> DECREMENT_STOCK_SCRIPT =
+            new DefaultRedisScript<>(DECREMENT_STOCK_LUA_SCRIPT, Long.class);
+
 
     @Trace(operationName = "kafka.consume", resourceName = "EventConsumer.handleApplication")
     @RetryableTopic(
@@ -30,36 +52,25 @@ public class EventConsumer {
             dltStrategy = DltStrategy.FAIL_ON_ERROR
     )
     @KafkaListener(topics = "${event.kafka-topic}")
-    public void handleApplication(String message, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
-        String[] parts = message.split(":");
-
-        if (parts.length != 2) {
-            log.error("잘못된 형식의 Kafka 메시지 수신 [Topic: {}]: '{}'. 'email:STATUS' 형식을 따라야 합니다.", topic, message);
-            return;
-        }
-
-        String email = parts[0];
-        ApplicationStatus status;
+    public void handleApplication(String email, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
+        log.info("Kafka 메시지 수신 [Topic: {}]: Email={}", topic, email);
 
         try {
-            status = ApplicationStatus.valueOf(parts[1]);
-        } catch (IllegalArgumentException e) {
-            log.error("유효하지 않은 ApplicationStatus 값 수신 [Topic: {}]: '{}' in message '{}'", topic, parts[1], message);
-            return;
-        }
+            Long remainingStock = redisTemplate.execute(DECREMENT_STOCK_SCRIPT, Collections.singletonList(giftStockKey));
 
-        try {
-            log.info("Kafka 메시지 수신 [Topic: {}]: Email={}, Status={}", topic, email, status);
-
-            applicationService.saveApplication(email, status);
-
-            if (status == ApplicationStatus.SUCCESS) {
-                emailService.sendConfirmationEmail(email);
+            if (remainingStock == null || remainingStock < 0) {
+                log.info("선착순 마감. [사용자: {}]", email);
+                applicationService.saveApplication(email, ApplicationStatus.FAILURE);
+                return;
             }
 
+            log.info("선착순 통과! [사용자: {}, 남은 재고: {}]", email, remainingStock);
+            applicationService.saveApplication(email, ApplicationStatus.SUCCESS);
+            emailService.sendConfirmationEmail(email);
+
         } catch (Exception e) {
-            log.error("Kafka 메시지 처리 중 비즈니스 로직 오류 발생: {}", message, e);
-            throw new RuntimeException("Kafka message processing failed for message: " + message, e);
+            log.error("Kafka 메시지 처리 중 비즈니스 로직 오류 발생: {}", email, e);
+            throw new RuntimeException("Kafka message processing failed for message: " + email, e);
         }
     }
 
@@ -68,3 +79,4 @@ public class EventConsumer {
         log.error("[DLT] 최종 처리 실패 [Topic: {}]: {}", topic, message);
     }
 }
+
