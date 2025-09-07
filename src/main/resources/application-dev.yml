@@ -9,9 +9,6 @@ server:
     accept-count: 200
 
 spring:
-  config:
-    activate:
-      on-profile: prod
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: ${DATASOURCE_URL}
@@ -19,45 +16,61 @@ spring:
     password: ${DATASOURCE_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     properties:
       hibernate:
-        format_sql: false
+        format_sql: true
         default_batch_fetch_size: 100
     open-in-view: false
   data:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
+
+  mail:
+    # --- [로컬 성능 테스트용: MailHog 사용 시] ---
+    host: localhost
+    port: 1025
+    from: test@example.com # [수정] from 주소 추가
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+    # --- [개발/배포용: Gmail 등 실제 메일 서버 사용 시] ---
+    # host: smtp.gmail.com
+    # port: 587
+    # from: your-email@gmail.com
+    # username: ${MAIL_USERNAME}
+    # password: ${MAIL_PASSWORD}
+    # properties:
+    #   mail:
+    #     smtp:
+    #       auth: true
+    #       starttls:
+    #         enable: true
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
     consumer:
-      group-id: farewell-group-prod
+      group-id: farewell-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-  mail:
-    host: email-smtp.ap-northeast-2.amazonaws.com
-    port: 587
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
-    from: noreply@terning-farewell.p-e.kr
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
+    listener:
+      concurrency: 10
 
 redisson:
-  file: classpath:redisson-config-prod.yml
+  file: classpath:redisson-config.yml
 
 event:
-  gift-stock-key: "event:gift:stock:prod"
-  kafka-topic: "event-application-prod"
+  gift-stock-key: "event:gift:stock"
+  kafka-topic: "event-application"
 
 admin:
   secret-key: ${ADMIN_SECRET_KEY}
@@ -71,7 +84,8 @@ jwt:
 
 logging:
   level:
-    org.hibernate.SQL: info
+    org.hibernate.SQL: debug
+    com.terning.farewell_server: debug
 
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS}
