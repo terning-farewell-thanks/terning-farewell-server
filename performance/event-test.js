@@ -2,7 +2,9 @@ import http from 'k6/http';
 import { check } from 'k6';
 import { SharedArray } from 'k6/data';
 
-const BASE_URL = 'http://localhost:8080';
+// const BASE_URL = 'http://localhost:8080';
+const BASE_URL = 'https://www.terning-farewell.p-e.kr';
+
 
 export const options = {
     scenarios: {

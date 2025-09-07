@@ -3,6 +3,7 @@ package com.terning.farewell_server.event.application;
 import com.terning.farewell_server.application.application.ApplicationService;
 import com.terning.farewell_server.application.domain.ApplicationStatus;
 import com.terning.farewell_server.mail.application.EmailService;
+import datadog.trace.api.Trace;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.DltHandler;
@@ -22,6 +23,7 @@ public class EventConsumer {
     private final ApplicationService applicationService;
     private final EmailService emailService;
 
+    @Trace(operationName = "kafka.consume", resourceName = "EventConsumer.handleApplication")
     @RetryableTopic(
             attempts = "3",
             backoff = @Backoff(delay = 1000, multiplier = 2),
