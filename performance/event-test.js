@@ -3,7 +3,8 @@ import { check } from 'k6';
 import { SharedArray } from 'k6/data';
 
 // const BASE_URL = 'http://localhost:8080';
-const BASE_URL = 'https://www.terning-farewell.p-e.kr';
+// API 전용 프로덕션 주소
+const BASE_URL = 'https://api.terning-farewell.cloud';
 
 
 export const options = {
