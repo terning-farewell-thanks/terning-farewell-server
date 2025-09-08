@@ -54,7 +54,7 @@ spring:
     port: 587
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
-    from: noreply@terning-farewell.p-e.kr
+    from: noreply@terning-farewell.cloud
     properties:
       mail:
         smtp:
