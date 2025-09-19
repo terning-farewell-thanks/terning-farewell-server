@@ -20,14 +20,16 @@ graph TD
     subgraph "User Interaction"
         A[User] -->|HTTPS Request| B(Nginx)
     end
+
     subgraph "Synchronous Flow (Fast Response)"
         B -->|"Proxy Pass"| C{"API Server (Spring Boot)"}
-        C -->|"Check Stock & Lock"| D["Redis (Redisson)"]
         C -->|"Produce Message"| E[Kafka]
-        C -->|"202- Accepted"| A
+        C -->|"2022-Accepted"| A
     end
+
     subgraph "Asynchronous Flow (Background Processing)"
-        F[Kafka Consumer] -->|"Consume Message"| E
+        F["Kafka Consumer (in Spring Boot)"] -->|"Consume Message"| E
+        F -->|"Decrement Stock (Atomic Op)"| D[Redis]
         F -->|"Save Data"| G[MySQL DB]
         F -->|"Send Email"| H["Email Service (AWS SES / Gmail)"]
     end
